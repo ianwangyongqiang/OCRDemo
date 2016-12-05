@@ -15,11 +15,22 @@
  */
 package com.wang.ian.ocrdemo.logic;
 
+import android.text.TextUtils;
 import android.util.SparseArray;
 
 import com.google.android.gms.vision.Detector;
 import com.google.android.gms.vision.text.TextBlock;
+import com.google.api.services.translate.model.TranslationsListResponse;
+import com.google.api.services.translate.model.TranslationsResource;
 import com.wang.ian.ocrdemo.ui.camera.GraphicOverlay;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+import rx.android.schedulers.AndroidSchedulers;
+import rx.functions.Action1;
+import rx.schedulers.Schedulers;
 
 /**
  * A very simple Processor which receives detected TextBlocks and adds them to the overlay
@@ -28,9 +39,15 @@ import com.wang.ian.ocrdemo.ui.camera.GraphicOverlay;
 public class OcrDetectorProcessor implements Detector.Processor<TextBlock> {
 
     private GraphicOverlay<OcrGraphic> mGraphicOverlay;
+    private LanguageListener mListener;
+    private int mIndex;
+    private int mCurrent;
+    private boolean mIsTranslating;
 
-    public OcrDetectorProcessor(GraphicOverlay<OcrGraphic> ocrGraphicOverlay) {
+    public OcrDetectorProcessor(GraphicOverlay<OcrGraphic> ocrGraphicOverlay, LanguageListener listener) {
         mGraphicOverlay = ocrGraphicOverlay;
+        mListener = listener;
+        mIndex = 0;
     }
 
     /**
@@ -42,12 +59,16 @@ public class OcrDetectorProcessor implements Detector.Processor<TextBlock> {
      */
     @Override
     public void receiveDetections(Detector.Detections<TextBlock> detections) {
-        mGraphicOverlay.clear();
+        addIndex();
         SparseArray<TextBlock> items = detections.getDetectedItems();
-        for (int i = 0; i < items.size(); ++i) {
-            TextBlock item = items.valueAt(i);
-            OcrGraphic graphic = new OcrGraphic(mGraphicOverlay, item);
-            mGraphicOverlay.add(graphic);
+        translate(items);
+    }
+
+    private void addIndex() {
+        if (mIndex < Integer.MAX_VALUE) {
+            mIndex ++;
+        } else {
+            mIndex = 0;
         }
     }
 
@@ -57,5 +78,63 @@ public class OcrDetectorProcessor implements Detector.Processor<TextBlock> {
     @Override
     public void release() {
         mGraphicOverlay.clear();
+    }
+
+    private void translate(SparseArray<TextBlock> list) {
+        if (list.size() == 0) {
+            return;
+        }
+        boolean ok = false;
+        if (!mIsTranslating) {
+            ok = true;
+        }
+        if (mIndex > mCurrent + 4) {
+            mCurrent = mIndex;
+            ok = true;
+        }
+        if (ok) {
+            mIsTranslating = true;
+            final List<String> phrases = new ArrayList<>();
+            final HashMap<String, TextBlock> map = new HashMap<>();
+            for (int i = 0; i < list.size(); i++) {
+                TextBlock block = list.get(list.keyAt(i));
+                String value = block.getValue();
+                if (!TextUtils.isEmpty(value)) {
+                    phrases.add(value);
+                    map.put(value + String.valueOf(phrases.size() - 1), block);
+                }
+            }
+            TranslateObservable.getTranslateObservable(mListener.to(), phrases)
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(new Action1<TranslationsListResponse>() {
+                        @Override
+                        public void call(TranslationsListResponse translationsListResponse) {
+                            mGraphicOverlay.clear();
+                            List<TranslationsResource> results = translationsListResponse.getTranslations();
+                            if (results.size() == phrases.size()) {
+                                for (int i = 0; i < phrases.size(); i++) {
+                                    TextBlock block = map.get(phrases.get(i) + String.valueOf(i));
+                                    if (block != null) {
+                                        OcrGraphic graphic = new OcrGraphic(mGraphicOverlay, block, results.get(i).getTranslatedText());
+                                        mGraphicOverlay.add(graphic);
+                                    }
+                                }
+                            } else {
+                                for (TextBlock block : map.values()) {
+                                    OcrGraphic graphic = new OcrGraphic(mGraphicOverlay, block, block.getValue());
+                                    mGraphicOverlay.add(graphic);
+                                }
+                            }
+                            mIsTranslating = false;
+                        }
+                    }, new Action1<Throwable>() {
+                        @Override
+                        public void call(Throwable throwable) {
+                            mIsTranslating = false;
+                            throwable.printStackTrace();
+                        }
+                    });
+        }
     }
 }

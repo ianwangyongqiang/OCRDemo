@@ -19,11 +19,21 @@ android {
     }
 }
 
+repositories {
+    mavenCentral()
+}
+
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
+    compile 'com.google.apis:google-api-services-translate:v2-rev48-1.22.0', {
+        exclude group: 'com.google.code.findbugs'
+    }
+    compile 'com.google.api-client:google-api-client-android:1.17.0-rc', {
+        exclude group: 'com.google.code.findbugs'
+    }
     compile 'com.android.support:appcompat-v7:25.0.1'
     compile 'com.android.support:design:25.0.1'
     compile 'com.google.android.gms:play-services-vision:10.0.1'

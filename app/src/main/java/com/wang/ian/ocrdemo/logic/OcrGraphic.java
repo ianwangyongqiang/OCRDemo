@@ -39,22 +39,24 @@ public class OcrGraphic extends GraphicOverlay.Graphic {
     private static Paint sRectPaint;
     private static Paint sTextPaint;
     private final TextBlock mText;
+    private final String mContent;
 
-    OcrGraphic(GraphicOverlay overlay, TextBlock text) {
+    OcrGraphic(GraphicOverlay overlay, TextBlock text, String content) {
         super(overlay);
 
+        mContent = content;
         mText = text;
 
         if (sRectPaint == null) {
             sRectPaint = new Paint();
             sRectPaint.setColor(TEXT_COLOR);
-            sRectPaint.setStyle(Paint.Style.STROKE);
-            sRectPaint.setStrokeWidth(4.0f);
+            sRectPaint.setStyle(Paint.Style.FILL);
+//            sRectPaint.setStrokeWidth(4.0f);
         }
 
         if (sTextPaint == null) {
             sTextPaint = new Paint();
-            sTextPaint.setColor(TEXT_COLOR);
+            sTextPaint.setColor(Color.BLACK);
             sTextPaint.setTextSize(54.0f);
         }
         // Redraw the overlay, as this graphic has been added.
@@ -116,7 +118,7 @@ public class OcrGraphic extends GraphicOverlay.Graphic {
         for(Text currentText : textComponents) {
             float left = translateX(currentText.getBoundingBox().left);
             float bottom = translateY(currentText.getBoundingBox().bottom);
-            canvas.drawText(currentText.getValue(), left, bottom, sTextPaint);
+            canvas.drawText(mContent, left, bottom, sTextPaint);
         }
     }
 }

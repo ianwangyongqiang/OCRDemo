@@ -16,26 +16,29 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
+import android.text.TextUtils;
 import android.view.View;
-import android.widget.SimpleAdapter;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.vision.text.TextRecognizer;
+import com.google.api.services.translate.model.LanguagesResource;
 import com.wang.ian.ocrdemo.R;
+import com.wang.ian.ocrdemo.logic.LanguageListener;
 import com.wang.ian.ocrdemo.logic.OcrDetectorProcessor;
 import com.wang.ian.ocrdemo.logic.OcrGraphic;
+import com.wang.ian.ocrdemo.logic.TranslateManager;
 import com.wang.ian.ocrdemo.ui.camera.CameraSource;
 import com.wang.ian.ocrdemo.ui.camera.CameraSourcePreview;
 import com.wang.ian.ocrdemo.ui.camera.GraphicOverlay;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -45,7 +48,7 @@ import butterknife.ButterKnife;
  * CaptureActivity
  */
 
-public class CaptureActivity extends BaseActivity {
+public class CaptureActivity extends BaseActivity implements LanguageListener {
 
     // Intent request code to handle updating play services if needed.
     private static final int RC_HANDLE_GMS = 9001;
@@ -63,6 +66,9 @@ public class CaptureActivity extends BaseActivity {
     CameraSourcePreview capturePreview;
 
     private CameraSource mCameraSource;
+
+    private int mOriginalCur = 0;
+    private int mTranslationCur = 0;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -111,17 +117,55 @@ public class CaptureActivity extends BaseActivity {
     }
 
     private void initView() {
-        captureOriginalLanguage.setAdapter(new SimpleAdapter(this, getOriginalData(), android.R.layout.simple_list_item_1, new String[] {"English"}, new int[] {android.R.id.text1}));
-        captureTranslationLanguage.setAdapter(new SimpleAdapter(this, getOriginalData(), android.R.layout.simple_list_item_1, new String[] {"Chinese"}, new int[] {android.R.id.text1}));
+        ArrayAdapter<String> originalAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, getOriginalData());
+        ArrayAdapter<String> translationAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, getTranslationData());
+        captureOriginalLanguage.setAdapter(originalAdapter);
+        captureTranslationLanguage.setAdapter(translationAdapter);
+        captureOriginalLanguage.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+                mOriginalCur = i;
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {
+
+            }
+        });
+        captureTranslationLanguage.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+                mTranslationCur = i;
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {
+
+            }
+        });
     }
 
-    private List<Map<String, String>> getOriginalData() {
-        List<Map<String, String>> list = new ArrayList<>();
-        Map<String, String> data = new HashMap<>();
-        data.put("English", "english");
-        data.put("Chinese", "chinese");
-        list.add(data);
+    private List<String> getOriginalData() {
+        List<String> list = new ArrayList<>();
+        List<LanguagesResource> resources = TranslateManager.getInstance().getOriginalLanguageList();
+        for (LanguagesResource resource : resources) {
+            list.add(resource.getName());
+        }
         return list;
+    }
+
+    private List<String> getTranslationData() {
+        List<String> list = new ArrayList<>();
+        List<LanguagesResource> resources = TranslateManager.getInstance().getSupportLanguageList();
+        for (LanguagesResource resource : resources) {
+            list.add(TextUtils.isEmpty(resource.getName()) ? resource.getLanguage() : resource.getName());
+        }
+        return list;
+    }
+
+    @Override
+    public LanguagesResource to() {
+        return TranslateManager.getInstance().getSupportLanguageList().get(mTranslationCur);
     }
 
     /**
@@ -141,7 +185,7 @@ public class CaptureActivity extends BaseActivity {
         // is set to receive the text recognition results and display graphics for each text block
         // on screen.
         TextRecognizer textRecognizer = new TextRecognizer.Builder(context).build();
-        textRecognizer.setProcessor(new OcrDetectorProcessor(captureGraphicOverlay));
+        textRecognizer.setProcessor(new OcrDetectorProcessor(captureGraphicOverlay, this));
 
         if (!textRecognizer.isOperational()) {
             // Note: The first time that an app using a Vision API is installed on a

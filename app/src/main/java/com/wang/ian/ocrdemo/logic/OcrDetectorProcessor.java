@@ -97,7 +97,7 @@ public class OcrDetectorProcessor implements Detector.Processor<TextBlock> {
             final List<String> phrases = new ArrayList<>();
             final HashMap<String, TextBlock> map = new HashMap<>();
             for (int i = 0; i < list.size(); i++) {
-                TextBlock block = list.get(list.keyAt(i));
+                TextBlock block = list.valueAt(i);
                 String value = block.getValue();
                 if (!TextUtils.isEmpty(value)) {
                     phrases.add(value);

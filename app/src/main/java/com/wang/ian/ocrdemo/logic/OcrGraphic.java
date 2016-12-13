@@ -24,6 +24,7 @@ import com.google.android.gms.vision.text.Text;
 import com.google.android.gms.vision.text.TextBlock;
 import com.wang.ian.ocrdemo.ui.camera.GraphicOverlay;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -39,13 +40,23 @@ public class OcrGraphic extends GraphicOverlay.Graphic {
     private static Paint sRectPaint;
     private static Paint sTextPaint;
     private final TextBlock mText;
-    private final String mContent;
+    private List<String> mContentList = new ArrayList<>();
 
     OcrGraphic(GraphicOverlay overlay, TextBlock text, String content) {
         super(overlay);
 
-        mContent = content;
         mText = text;
+        int size = text.getComponents().size();
+
+        int point = content.length() / size;
+        for (int i = 0; i < size; i++) {
+            if (i == size - 1) {
+                mContentList.add(content.substring(point * i));
+            } else {
+                mContentList.add(content.substring(point * i, point * (i + 1)));
+            }
+        }
+
 
         if (sRectPaint == null) {
             sRectPaint = new Paint();
@@ -57,7 +68,7 @@ public class OcrGraphic extends GraphicOverlay.Graphic {
         if (sTextPaint == null) {
             sTextPaint = new Paint();
             sTextPaint.setColor(Color.BLACK);
-            sTextPaint.setTextSize(54.0f);
+            sTextPaint.setTextSize(34.0f);
         }
         // Redraw the overlay, as this graphic has been added.
         postInvalidate();
@@ -115,10 +126,12 @@ public class OcrGraphic extends GraphicOverlay.Graphic {
 
         // Break the text into multiple lines and draw each one according to its own bounding box.
         List<? extends Text> textComponents = text.getComponents();
-        for(Text currentText : textComponents) {
+
+        for (int i = 0; i < textComponents.size(); i++) {
+            Text currentText = textComponents.get(i);
             float left = translateX(currentText.getBoundingBox().left);
             float bottom = translateY(currentText.getBoundingBox().bottom);
-            canvas.drawText(mContent, left, bottom, sTextPaint);
+            canvas.drawText(mContentList.get(i), left, bottom, sTextPaint);
         }
     }
 }
